@@ -1,0 +1,9 @@
+.idea
+/vendor
+
+/Log/
+/Temp/
+
+dev.env
+
+produce.env
