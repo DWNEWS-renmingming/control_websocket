@@ -10,6 +10,8 @@ namespace App\WebSocket\Controller;
 use App\WebSocket\WebSocketAction;
 use EasySwoole\Socket\AbstractInterface\Controller;
 use EasySwoole\EasySwoole\ServerManager;
+use EasySwoole\EasySwoole\Task\TaskManager;
+use App\Task\BroadcastTask;
 
 use App\Utility\Pool\MysqlPool;
 use App\Utility\Pool\RedisPool;
@@ -27,12 +29,8 @@ class Index extends Controller
 {
     public $redis;
 
-    public $db;
-
     public function __construct() 
     {
-        //mysql配置
-        $this->db    = MysqlPool::defer();
         //redis配置
         $this->redis = RedisPool::defer();
         //继承父类的的 __construct
@@ -55,6 +53,14 @@ class Index extends Controller
         'delete',
     ];
 
+    /**
+     * 延时发送队列
+     */
+    function delay($fd = '',$userID = '', $toID = '')
+    {
+        TaskManager::getInstance()->async(new BroadcastTask(['payload' => ['userID' => $userID , 'toID' => $toID], 'fromFd' => $fd]));
+    }
+
      /**
      * 发起邀请和主动挂断
      * @throws \Exception
@@ -75,22 +81,35 @@ class Index extends Controller
                 $roomID = $userID;
             }
 
+            //判断邀请的用户是否在线
+            $to_web_socket_user =  WebSocketAction::ver_get_web_socket_user . $toID;
+
+            if ( ! $this->redis->exists( $to_web_socket_user )  ) {
+               
+                $result['code']     = WebSocketAction::SUCCESS_CODE;
+                $result['message']  = '对方不在线';
+                $result['status']   =  WebSocketAction::msg_1002;
+                return  self::setMessage( $result, WebSocketAction::msg_1002 );
+            } else {
+                $toFD          =  $this->redis->get($to_web_socket_user);
+            }
+
             if($userID == $toID) {
-                $result['error']    = WebSocketAction::ERROR_CODE;
+                $result['code']     = WebSocketAction::ERROR_CODE;
                 $result['message']  = '自己不能邀请自己';
                 return  self::setMessage( $result );
             }
 
             if( empty($operation) || !in_array($operation, $operation_method) )
             {
-                $result['error']    = WebSocketAction::ERROR_CODE;
+                $result['code']     = WebSocketAction::ERROR_CODE;
                 $result['message']  = '操作型不能为空';
     
                 return  self::setMessage( $result );
             }
             if(empty($userID) || !is_numeric($userID) || empty($toID) || !is_numeric($toID))
             {
-                $result['error']    = WebSocketAction::ERROR_CODE;
+                $result['code']     = WebSocketAction::ERROR_CODE;
                 $result['message']  = '邀请人ID不能为空';
     
                 return  self::setMessage( $result );
@@ -107,14 +126,14 @@ class Index extends Controller
                 'add'     => '发起邀请成功',
                 'agree'   => '通过成功',
                 'cancel'  => '拒绝成功',
-                'delete'  => '挂断成功',
+                'delete'  => '主动挂断成功',
             ];
 
             $temporary_pain = WebSocketAction::ver_get_temporary_pain;//零时
             $permanent_pain = WebSocketAction::ver_get_permanent_pain;//永久
             $push_user      = WebSocketAction::ver_get_push_user_info;//推送
 
-            $success_invitation = WebSocketAction::ver_get_success_invitation;;//成功邀请的列表
+            $success_invitation = WebSocketAction::ver_get_success_invitation;//成功邀请的列表
 
             //邀请方主动触发删除
             if($operation == 'delete') {
@@ -130,11 +149,11 @@ class Index extends Controller
                 }
 
                 $result    = [
-                    'error'    => 0, 
+                    'code'    => WebSocketAction::SUCCESS_CODE, 
                     'message'  =>  $message[$operation],
-                    'status'   => 5 //主动挂断成功
+                    'status'   => WebSocketAction::msg_1003 //主动挂断成功
                 ];
-                return  self::setMessage( $result );
+                return  self::setMessage( $result, WebSocketAction::msg_1003 );
             }
 
             //检测toID是否在永久桶里面  我的成功邀请的列表
@@ -143,11 +162,11 @@ class Index extends Controller
             //我的成果邀请列表存在 toID
             if( $zrank_success_invitation === 0 || $zrank_success_invitation) {  
                 $result    = [
-                    'error'    => 0, 
+                    'code'    => WebSocketAction::SUCCESS_CODE, 
                     'message'  =>  '你们已经互通直播了',
-                    'status'   => 2 //你们已经互通直播了
+                    'status'   => WebSocketAction::msg_1004 //你们已经互通直播了
                 ];
-                return  self::setMessage( $result );
+                return  self::setMessage( $result, WebSocketAction::msg_1004 );
             }
 
             //检测该用户是否忙碌 和 我是否邀请这位用户
@@ -168,27 +187,27 @@ class Index extends Controller
                     $this->redis->zrem($temporary_pain, $userID);
                     $this->redis->zrem($temporary_pain, $toID);
                     $result    = [
-                        'error'    => 0, 
+                        'code'    => WebSocketAction::SUCCESS_CODE, 
                         'message'  =>  '长时间未响应,用户不在线',
-                        'status'   => 6 //长时间未响应,用户不在线 隐藏div
+                        'status'   => WebSocketAction::msg_1005 //长时间未响应,用户不在线 隐藏div
                     ];
-                    return  self::setMessage( $result );
+                    return  self::setMessage( $result, WebSocketAction::msg_1005 );
                 } else {
                     $result    = [
-                        'error'    => 0, 
+                        'code'    => WebSocketAction::SUCCESS_CODE, 
                         'message'  =>  '您已经邀请此用户,请耐心等待',
-                        'status'   => 1 //您已经邀请此用户,请耐心等待
+                        'status'   => WebSocketAction::msg_1006 //您已经邀请此用户,请耐心等待
                     ];
-                    return  self::setMessage( $result );
+                    return  self::setMessage( $result, WebSocketAction::msg_1006 );
                 }
             }  else  if( $zrank_tid === 0 || $zrank_tid || $zrank1_tid === 0 || $zrank1_tid) {
                 // '该用户在忙碌';
                 $result    = [
-                    'error'    => 0, 
+                    'code'    => WebSocketAction::SUCCESS_CODE, 
                     'message'  =>  '该用户正在忙碌,请稍后',
-                    'status'   => 4 // '该用户正在忙碌,请稍后'
+                    'status'   => WebSocketAction::msg_1007 // '该用户正在忙碌,请稍后'
                 ];
-                return  self::setMessage( $result );
+                return  self::setMessage( $result, WebSocketAction::msg_1007 );
             }  else {
                 $this->redis->zadd($temporary_pain, $score, $userID);
                 $this->redis->zadd($temporary_pain, $score, $toID);
@@ -202,12 +221,34 @@ class Index extends Controller
                 ];
                 $this->redis->set($redis_name_push, json_encode( $redis_name_push_data, JSON_UNESCAPED_UNICODE ) );//推人 //推送人员 list列表 uid + rid
                 self::redis_expire_time($redis_name_push, 30);
-                $result    = [
-                    'error'    => 0, 
-                    'message'  =>  '您已经邀请此用户,请耐心等待',
-                    'status'   => 1 // '您已经邀请此用户,请耐心等待'
+                //推送人
+                $userInfo = self::selectUserInfo($userID);
+                $sendData   = [
+                    [
+                        'action' => WebSocketAction::msg_1008,
+                        'data'   => [
+                            'roomId'       => !empty($roomID) ? $roomID : '',
+                            'userId'       => $userID,
+                            // 'fd'           => $getFd,
+                            'startTime'    => time(),
+                            'nowTime'      => time(),
+                            'firstName'    => ! empty ( $userInfo['first_name'] ) ?  $userInfo['first_name'] : '',
+                            'icon'         => ! empty ( $userInfo['icon'] ) ?   WebSocketAction::URL . $userInfo['icon'] :  WebSocketAction::IMG_URL,
+                        ]
+                    ],
+                    
                 ];
-                return  self::setMessage( $result );
+
+                $flag =  self::push($toFD, $sendData);
+                //异步通知 定时器
+                self::delay($getFd, $userID, $toID);
+
+                $result    = [
+                    'code'     => WebSocketAction::SUCCESS_CODE, 
+                    'message'  =>  '初次邀请此用户,请耐心等待',
+                    'status'   => WebSocketAction::msg_1006 // '您已经邀请此用户,请耐心等待'
+                ];
+                return  self::setMessage( $result, WebSocketAction::msg_1006 );
             }
 
         }
@@ -235,21 +276,21 @@ class Index extends Controller
                 $toID = $roomID;//在房间内邀请别人
             }
             if($userID == $toID) {
-                $result['error']    = WebSocketAction::ERROR_CODE;
+                $result['code']    = WebSocketAction::ERROR_CODE;
                 $result['message']  = '自己不能邀请自己';
                 return  self::setMessage( $result );
             }
 
             if( empty($operation) || !in_array($operation, $operation_method) )
             {
-                $result['error']    = WebSocketAction::ERROR_CODE;
+                $result['code']    = WebSocketAction::ERROR_CODE;
                 $result['message']  = '操作型不能为空';
     
                 return  self::setMessage( $result );
             }
             if(empty($userID) || !is_numeric($userID) || empty($toID) || !is_numeric($toID))
             {
-                $result['error']    = WebSocketAction::ERROR_CODE;
+                $result['code']    = WebSocketAction::ERROR_CODE;
                 $result['message']  = '邀请人ID不能为空';
     
                 return  self::setMessage( $result );
@@ -259,7 +300,7 @@ class Index extends Controller
             $permanent_pain = WebSocketAction::ver_get_permanent_pain;//永久
             $push_user      = WebSocketAction::ver_get_push_user_info;//推送
 
-            $success_invitation = WebSocketAction::ver_get_success_invitation;;//成功邀请的列表 toID
+            $success_invitation = WebSocketAction::ver_get_success_invitation;//成功邀请的列表 toID
 
             
 
@@ -281,7 +322,7 @@ class Index extends Controller
             //发起成功邀请的列表 toID 的桶 记录userID
             $success_invitation = $success_invitation . $toID;
 
-            $status = 6;//
+            $status = WebSocketAction::msg_1005;//长时间未响应,用户不在线
             if($operation == 'agree') {
                 
                 //发起成功邀请的列表 toID 的桶 记录FD
@@ -304,11 +345,11 @@ class Index extends Controller
                 $this->redis->zadd($permanent_pain, time(), $userID); 
                 $this->redis->zadd($permanent_pain, time(), $toID); 
 
-                $status = 2;
+                $status = WebSocketAction::msg_1004;//你们已经互通直播了
 
 
             } else if($operation == 'cancel') {
-                $status = 3;
+                $status =  WebSocketAction::msg_1009;//该用户拒绝了您
             }
             
             $message = [
@@ -319,18 +360,22 @@ class Index extends Controller
             ];
 
             $result    = [
-                'error'    => 0, 
+                'code'    => WebSocketAction::SUCCESS_CODE, 
                 'message'  => $message[$operation],
                 'status'   => $status // '您已经邀请此用户,请耐心等待'
             ];
             $result_error    = [
-                'error'    => 0, 
-                'message'  => '邀请人意外退出',
-                'status'   => 7 // web页面刷新 丢失 fd
+                'code'    => WebSocketAction::SUCCESS_CODE, 
+                'message'  => '发起邀请人意外退出',
+                'status'   => WebSocketAction::msg_1010,  // web页面刷新 丢失 fd
             ];
-            $flag =  self::push($fd, $result);
+            $sendData = [
+                'action' => $status,
+                'data'   => $result,
+            ];
+            $flag =  self::push($fd, $sendData);
             if($flag) {
-                self::setMessage( $result );
+                self::setMessage( $result, $status );
             } else {
                 //发起成功邀请的列表 toID 的桶 记录FD
                 $this->redis->zrem($toFd_redis_name, $getFd); 
@@ -340,7 +385,7 @@ class Index extends Controller
                 $this->redis->zrem($permanent_pain, $userID); 
                 $this->redis->zrem($permanent_pain, $toID); 
 
-                self::setMessage( $result_error );
+                self::setMessage( $result_error, WebSocketAction::msg_1010 );
             }
            
         }    
@@ -365,7 +410,7 @@ class Index extends Controller
             ];
             if( empty($operation) || !in_array($operation, $operation_method) )
             {
-                $result['error']    = WebSocketAction::ERROR_CODE;
+                $result['code']    = WebSocketAction::ERROR_CODE;
                 $result['message']  = '操作型不能为空';
                 return  self::setMessage( $result );
                 
@@ -373,14 +418,14 @@ class Index extends Controller
 
             if(empty($toID) || !is_numeric($toID))
             {
-                $result['error']    = WebSocketAction::ERROR_CODE;
+                $result['code']    = WebSocketAction::ERROR_CODE;
                 $result['message']  = '直播间ID不能为空';
                 return  self::setMessage( $result );
             }
     
             if($toID == $userID)
             {
-                $result['error']    =  WebSocketAction::ERROR_CODE;
+                $result['code']    =  WebSocketAction::ERROR_CODE;
                 $result['message']  = 'ID不能相同';
                 return  self::setMessage( $result );
             }
@@ -392,7 +437,7 @@ class Index extends Controller
             $permanent_pain = WebSocketAction::ver_get_permanent_pain;//永久
             $temporary_pain = WebSocketAction::ver_get_temporary_pain;//零时
 
-            $success_invitation = WebSocketAction::ver_get_success_invitation;;//成功邀请的列表 toID
+            $success_invitation = WebSocketAction::ver_get_success_invitation;//成功邀请的列表 toID
             //发起成功邀请的列表 toID 的桶 记录FD
             $toFd_redis_name   = WebSocketAction::ver_get_success_invitation_fd . $toID;//成功邀请的列表 FD
 
@@ -420,17 +465,20 @@ class Index extends Controller
 
                 //成功邀请的列表 FD
                 if ( $this->redis->exists( $toFd_redis_name ) ) {
-                    $result_FD    = [
-                        'error'    => 0, 
-                        'message'  => '房主退出',
-                        'status'   => 8 //房主退出
+                    $sendData    = [
+                        'action' => WebSocketAction::msg_1011, //房主退出,
+                        'data'   => [
+                            'code'    =>  WebSocketAction::SUCCESS_CODE, 
+                            'message'  => '房主退出,房间不存在',
+                            'status'   => WebSocketAction::msg_1011 //房主退出
+                        ]
                     ];
                     //成功邀请的列表 FD
                     $toFd_redis_name_info = $this->redis->zrevrange($toFd_redis_name, 0, -1);
                     for ($i=0; $i < count($toFd_redis_name_info); $i++) { 
                         //fd推送
                         $toFd_redis_name_info_FD = $toFd_redis_name_info[$i];
-                        self::push($toFd_redis_name_info_FD, $result_FD);
+                        self::push($toFd_redis_name_info_FD, $sendData);
                     }
                     //删除房间主人成功邀请
                     $this->redis->del($toFd_redis_name);
@@ -443,7 +491,7 @@ class Index extends Controller
 
                 if(empty($userID) || !is_numeric($userID))
                 {
-                    $result['error']    = 1;
+                    $result['code']    = WebSocketAction::ERROR_CODE;
                     $result['message']  = '用户ID不能为空';
                     return  self::setMessage( $result );
                 }
@@ -462,51 +510,15 @@ class Index extends Controller
             ];
     
             $result    = [
-                'error'    => 0, 
-                'message'  =>  $message[$operation],
-                'status'   => 8 //房主退出
+                'code'    => 200, 
+                'message'  => $message[$operation],
+                'status'   => WebSocketAction::msg_1011 //房主退出
             ];
-            return  self::setMessage( $result );
+            return  self::setMessage( $result, WebSocketAction::msg_1011 );
         }
     }
     
-    /**
-     * 检测房间是否存在
-     */
-    public function detectionRoom() 
-    {
-        /** @var WebSocketClient $client */
-        $getFd = $this->caller()->getClient()->getFd();
-        $broadcastPayload = $this->caller()->getArgs();
-        if ( !empty($broadcastPayload) ) {
-            $userID    = $broadcastPayload['userID'];
-            $roomID    = ! empty ( $broadcastPayload['roomID'] ) ? intval( $broadcastPayload['roomID'] ) : '';
-            if(empty($roomID) || !is_numeric($roomID))
-            {
-                $result['error']    = WebSocketAction::ERROR_CODE;
-                $result['message']  = '直播间ID不能为空';
-                return  self::setMessage( $result );
-            }
     
-            if(empty($userID) || !is_numeric($userID))
-            {
-                $result['error']    =  WebSocketAction::ERROR_CODE;
-                $result['message']  = '用户ID不能相同';
-                return  self::setMessage( $result );
-            }
-          
-            $status = 0;
-            if ( $this->redis->exists('room_rid_'. $roomID ) ) {
-                $status = 1;
-            } 
-            $result    = [
-                'error'    => 0, 
-                'message'  =>  '验证直播间是否存在',
-                'status'   => $status //房主退出
-            ];
-            return  self::setMessage( $result );
-        }
-    }
     /*
     * HTTP触发向某个客户端单独推送消息
     * @example http://ip:9501/WebSocketTest/push?fd=2
@@ -529,89 +541,17 @@ class Index extends Controller
         }
     }
 
-    /**
-     * 获取个人列表
-     * @throws \Exception
-     */
-    function roomList()
-    {
-        /** @var WebSocketClient $client */
-        $client = $this->caller()->getClient();
-        $broadcastPayload = $this->caller()->getArgs();
-        if ( !empty($broadcastPayload) ) {
-            $userID    = $broadcastPayload['userID'];
-            $operation = $broadcastPayload['operation'];
-            if(empty($userID) || !is_numeric($userID))
-            {
-                $result['error']    = WebSocketAction::ERROR_CODE;
-                $result['message']  = '直播间ID不能为空';
-                return  self::setMessage( $result );
-            }
-            $operation_method = [
-                'list',
-                'userInfo',
-            ];
-            if( empty($operation) || !in_array($operation, $operation_method) )
-            {
-                $result['error']    = WebSocketAction::ERROR_CODE;
-                $result['message']  = '操作型不能为空';
-                return  self::setMessage( $result );
-            }
-
-            $redis_name = WebSocketAction::ver_get_push_user_info . $userID;
-            //直播总人数
-            $reeturn_data = $data = [];
-            if($operation == 'list') {
-                if ($this->redis->exists($redis_name)) {
-                    $redis_data = $this->redis->get($redis_name);
-                    $room_data  =  json_decode($redis_data, true);
-                    $ID         = $room_data['uid'];
-                    $fd         = $room_data['fd'];
-                    $room_id    = $room_data['rid'];
-                    $start_time = $room_data['time'];
-                    $now_time   = time();
-                    $userInfo = self::selectUserInfo($ID);
-                    $data     = [
-                        'room_id'      => !empty($room_id) ? $room_id : '',
-                        'user_id'      => $ID,
-                        'fd'           => $fd,
-                        'start_time'   => $start_time,
-                        'now_time'     => $now_time,
-                        'first_name'   => ! empty ( $userInfo['first_name'] ) ?  $userInfo['first_name'] : '',
-                        'icon'         => ! empty ( $userInfo['icon'] ) ?   WebSocketAction::URL . $userInfo['icon'] :  WebSocketAction::IMG_URL,
-                    ];
-                }
-            } else if($operation == 'userInfo') {
-                $userInfo = self::selectUserInfo($userID);
-                $data     = [
-                    'user_id'    => $userID,
-                    'first_name' => ! empty ( $userInfo['first_name'] ) ?  $userInfo['first_name'] : '',
-                    'icon'       => ! empty ( $userInfo['icon'] ) ?   WebSocketAction::URL . $userInfo['icon'] :  WebSocketAction::IMG_URL,
-                ];
-            }
-
-            $reeturn_data  = [
-                'list'         =>  ! empty( $data ) ? $data : null,
-            ];
-            $message = [
-                'list'      => '获取本场受邀请的用户',
-                'userInfo'  => '获取用户基本信息',
-            ];
-            $result['error']    = WebSocketAction::CODE;
-            $result['message']  = $message[$operation];
-            $result['result']   = $reeturn_data;
-
-            self::setMessage( $result );
-        }
-    }
+    
 
     /**
      * 获取个人信息
      */
     public function selectUserInfo( $ID = '' ) {
         if(!$ID) { return false;}
+        //mysql配置
+        $db    = MysqlPool::defer();
         $return_data = [];
-        $UsersModel = new UsersModel($this->db);
+        $UsersModel = new UsersModel($db);
         $sql  = 'SELECT user_id, first_name, user_name, touxiang as icon FROM p46_users WHERE  user_id = ' . $ID . ' ';
         @$dbData   = $UsersModel->getloadMoreKeys($sql);
         if($dbData) {
@@ -624,12 +564,33 @@ class Index extends Controller
      */
     function heartbeat()
     {
+        $getFd   = $this->caller()->getClient()->getFd();
+        $Payload  = $this->caller()->getArgs();
+        $userID   = ! empty ( $Payload['userID'] ) && is_numeric( $Payload['userID'] ) ? $Payload['userID'] : '';
+        if( $userID && is_numeric( $userID ) ) {
+            $redis_name_user = WebSocketAction::ver_get_web_socket_user . $userID;
+            $redis_name_fd   = WebSocketAction::ver_get_web_socket_fd . $getFd;
+            $this->redis->set($redis_name_user , $getFd);
+            $this->redis->set($redis_name_fd   , $userID);
+        }
+        $this->response()->setMessage('PONG_'. $getFd . '_' . $userID);
+    }
+
+    /**
+     * PING
+     */
+    function heartbeat1()
+    {
         $this->response()->setMessage('PONG');
     }
     /**
      * 返回结果的处理
      */
-    function setMessage( $data = []) {
+    function setMessage(  $msg = '', $action = WebSocketAction::msg_1001) {
+        $data = [
+            'action' => $action,
+            'data'   => $msg
+        ];
         return  $this->response()->setMessage(json_encode( $data, JSON_UNESCAPED_UNICODE ) );
     }
 

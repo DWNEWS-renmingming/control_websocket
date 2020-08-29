@@ -8,42 +8,33 @@ http://www.easyswoole.com/wstool.html
 
 ws://127.0.0.1:9501
 
-测试 hello
-{"controller":"Index","action":"hello","params":{"userID":3433,"operation":"userInfo"}}
+2 => 'IntoRoom',
+3 => 'OptionRoom',
+4 => 'exitRoom',
+99 => 'heartbeat1',
 
-
-测试 list
-{"controller":"Index","action":"roomList","params":{"userID":"235","operation":"list"}}
 
 add  & delete
-{"controller":"Index","action":"IntoRoom","params":{"userID":"236","toID":"235","roomID":"236","operation":"add"}}
+{"action":"2","params":{"userID":"236","toID":"235","roomID":"236","operation":"add"}}
+{"action":"2","params":{"userID":"236","toID":"235","roomID":"236","operation":"delete"}}
 
-{"controller":"Index","action":"IntoRoom","params":{"userID":"236","toID":"235","operation":"delete"}}
+agree or cancel
+{"action":"3","params":{"userID":"235","toID":"236","roomID":"236","operation":"agree"}}
+{"action":"3","params":{"userID":"235","toID":"236","roomID":"236","operation":"cancel"}}
 
+退出房间
+{"action":"4","params":{"userID":"235","roomID":"236","toID":"236","operation":"closeAll"}}
+{"action":"4","params":{"userID":"235","roomID":"236","toID":"236","operation":"closeOne"}}
 
-agree
-
-{"controller":"Index","action":"OptionRoom","params":{"userID":"235","toID":"236","roomID":"236","operation":"agree"}}
-
-cancel
-{"controller":"Index","action":"OptionRoom","params":{"userID":"235","toID":"236","operation":"cancel"}}
-
-房主退房
-{"controller":"Index","action":"exitRoom","params":{"userID":"235","roomID":"236","toID":"236","operation":"closeAll"}}
-个人退房
-{"controller":"Index","action":"exitRoom","params":{"userID":"235","roomID":"236","toID":"236","operation":"closeOne"}}
--------
-
-检测房间是否存在
-{"controller":"Index","action":"detectionRoom","params":{"userID":"235","roomID":"236"}}
-
-
-status:1  您已经邀请此用户,请耐心等待
-status:2  你们已经互通直播了
-status:3  该用户拒绝了您！！
-status:4  该用户正在忙碌,请稍后
-
-status:5  主动挂断成功
-status:6  长时间未响应,用户不在线 div
-status:7  web页面刷新 丢失 fd
-status:8  房主退出
+返回消息类型
+1001   请求参数有问题
+1002   对方不在线
+1003   主动挂断
+1004   你们已经互通直播了
+1005   长时间未响应,用户不在线
+1006   您已经邀请此用户请耐性等待
+1007   该用户正在忙碌,请稍等在拨
+1008   推送人list列列表
+1009   该用户拒绝了您
+1010   发起邀请人意外退出 | / web页面刷新 丢失 fd
+1011   房主退出,房间不存在

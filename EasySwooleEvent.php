@@ -80,7 +80,6 @@ class EasySwooleEvent implements Event
 		$_COOKIE = $request->getCookieParams ();
 		$_SERVER = $request->getServerParams ();
 		// TODO: Implement onRequest() method.
-		return true;
         return true;
     }
 

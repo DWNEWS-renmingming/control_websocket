@@ -7,7 +7,8 @@
  */
 
 namespace App\WebSocket;
-
+use App\Utility\Pool\RedisPool;
+use App\WebSocket\WebSocketAction;
 /**
  * Class WebSocketEvent
  *
@@ -16,7 +17,7 @@ namespace App\WebSocket;
  * @package App\WebSocket
  */
 class WebSocketEvent
-{
+{ 
     /**
      * 握手事件
      *
@@ -75,7 +76,21 @@ class WebSocketEvent
     public function onClose(\swoole_server $server, int $fd, int $reactorId)
     {
         //刷新删除 fd  TCP客户端连接关闭后 
-        //file_put_contents("fd1.txt", $fd.'_'. time() . "\n", FILE_APPEND);
+        $redis =  RedisPool::defer();
+        $redis_name_fd   = WebSocketAction::ver_get_web_socket_fd . $fd;
+        if ( $redis->exists( $redis_name_fd )  ) {
+            $userID          =  $redis->get($redis_name_fd);
+            $redis_name_user = WebSocketAction::ver_get_web_socket_user . $userID;
+            $redis->del($redis_name_fd);
+            $redis->del($redis_name_user);
+            
+            $temporary_pain = WebSocketAction::ver_get_temporary_pain;//零时
+            $permanent_pain = WebSocketAction::ver_get_permanent_pain;//永久
+            //删除永久桶记录人
+            $redis->zrem($permanent_pain, $userID); 
+            //删除零时桶记录人
+            $redis->zrem($temporary_pain, $userID); 
+        }    
         /** @var array $info */
         $info = $server->getClientInfo($fd);
         /**
@@ -88,7 +103,6 @@ class WebSocketEvent
              * 参见 https://wiki.swoole.com/wiki/page/p-event/onClose.html
              */
             if ($reactorId < 0) {
-                //file_put_contents("fd2.txt", $reactorId.'_'. time() . "\n", FILE_APPEND);
                 echo "server close \n";
             }
         }
