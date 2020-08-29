@@ -126,7 +126,7 @@ class Index extends Controller
                 'add'     => '发起邀请成功',
                 'agree'   => '通过成功',
                 'cancel'  => '拒绝成功',
-                'delete'  => '主动挂断成功',
+                'delete'  => '我方主动挂断',
             ];
 
             $temporary_pain = WebSocketAction::ver_get_temporary_pain;//零时
@@ -147,6 +147,17 @@ class Index extends Controller
                 if($redis_value_1_uid == $userID) {
                     $this->redis->del($redis_name_push);//删除推人
                 }
+                //推送人
+                $sendData   = [
+                    'action' => WebSocketAction::msg_1012,
+                    'data'   => [
+                        'code'     => WebSocketAction::SUCCESS_CODE, 
+                        'message'  => '对方主动挂断',
+                        'status'   => WebSocketAction::msg_1012 //主动挂断成功
+                    ]
+                ];
+
+                self::push($toFD, $sendData);
 
                 $result    = [
                     'code'    => WebSocketAction::SUCCESS_CODE, 
@@ -224,19 +235,16 @@ class Index extends Controller
                 //推送人
                 $userInfo = self::selectUserInfo($userID);
                 $sendData   = [
-                    [
-                        'action' => WebSocketAction::msg_1008,
-                        'data'   => [
-                            'roomId'       => !empty($roomID) ? $roomID : '',
-                            'userId'       => $userID,
-                            // 'fd'           => $getFd,
-                            'startTime'    => time(),
-                            'nowTime'      => time(),
-                            'firstName'    => ! empty ( $userInfo['first_name'] ) ?  $userInfo['first_name'] : '',
-                            'icon'         => ! empty ( $userInfo['icon'] ) ?   WebSocketAction::URL . $userInfo['icon'] :  WebSocketAction::IMG_URL,
-                        ]
-                    ],
-                    
+                    'action' => WebSocketAction::msg_1008,
+                    'data'   => [
+                        'roomId'       => !empty($roomID) ? $roomID : '',
+                        'userId'       => $userID,
+                        // 'fd'           => $getFd,
+                        'startTime'    => time(),
+                        'nowTime'      => time(),
+                        'firstName'    => ! empty ( $userInfo['first_name'] ) ?  $userInfo['first_name'] : '',
+                        'icon'         => ! empty ( $userInfo['icon'] ) ?   WebSocketAction::URL . $userInfo['icon'] :  WebSocketAction::IMG_URL,
+                    ]
                 ];
 
                 $flag =  self::push($toFD, $sendData);

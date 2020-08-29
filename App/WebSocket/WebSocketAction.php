@@ -27,7 +27,7 @@ class WebSocketAction
     //返回消息类型
     const msg_1001      = 1001;//请求参数有问题
     const msg_1002      = 1002;//对方不在线
-    const msg_1003      = 1003;//主动挂断
+    const msg_1003      = 1003;//我方主动挂断
     const msg_1004      = 1004;//你们已经互通直播了
     const msg_1005      = 1005;//长时间未响应,用户不在线
     const msg_1006      = 1006;//您已经邀请此用户请耐性等待
@@ -36,6 +36,7 @@ class WebSocketAction
     const msg_1009      = 1009;//该用户拒绝了您
     const msg_1010      = 1010;//发起邀请人意外退出 | / web页面刷新 丢失 fd
     const msg_1011      = 1011;//房主退出,房间不存在
+    const msg_1012      = 1012;//房主退出,房间不存在
 
 
     const SUCCESS_CODE  = 200; //成功
