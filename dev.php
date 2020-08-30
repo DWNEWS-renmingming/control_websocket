@@ -16,10 +16,12 @@ return [
         'RUN_MODEL'      => SWOOLE_PROCESS,// 默认Server的运行模式
         'SETTING'        => [// Swoole Server的运行配置（ 完整配置可见[Swoole文档](https://wiki.swoole.com/wiki/page/274.html) ）
             'worker_num'               => 8,//运行的 task_worker 进程数量
+            // 'reload_async'             => true,//配置异步安全重启
+            // 'max_wait_time'            => 5,
             'max_request'              => 5000,// task_worker 完成该数量的请求后将退出，防止内存溢出
-            'enable_static_handler'    => true,//加入以下两条配置以返回静态文件
-//            'heartbeat_idle_time'      => 60, // 300没有心跳时则断开
-//            'heartbeat_check_interval' => 10,
+            'enable_static_handler'    => false,//加入以下两条配置以返回静态文件
+            'heartbeat_idle_time'      => 300, // 表示一个连接如果300秒内未向服务器发送任何数据，此连接将被强制关闭
+            'heartbeat_check_interval' => 60,  // 表示每60秒遍历一次
         ],
         'TASK'=>[
             'workerNum'=>4,
@@ -35,17 +37,7 @@ return [
         'HOST'           => '127.0.0.1',//console客户端连接远程地址
         'PORT'           => 9500,//console服务端监听端口,客户端连接远程端口
         'EXPIRE'         => '120',//心跳超时时间
-        // 'AUTH'           => null,//鉴权密码,如不需要鉴权可设置null
-        'AUTH'           => [
-            [
-                'USER'        => 'root',
-                'PASSWORD'    => 'root',
-                'MODULES'     => [
-                    'auth', 'server', 'help', 'test'
-                ],
-                'PUSH_LOG'    => true
-            ]
-        ]
+        'AUTH'           => null,//鉴权密码,如不需要鉴权可设置null
     ],
 
     /*################ MYSQL CONFIG ##################*/
@@ -72,5 +64,6 @@ return [
     ],
     'FAST_CACHE'=>[
         'PROCESS_NUM'=>5
-    ]
+    ],
+    'DISPLAY_ERROR' => false //新增配置项 DISPLAY_ERROR 默认 false， 如果需要Debug的用户 请设置为 true
 ];

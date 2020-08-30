@@ -56,9 +56,9 @@ class Index extends Controller
     /**
      * 延时发送队列
      */
-    function delay($fd = '',$userID = '', $toID = '')
+    function delay($fd = '',$roomID = '',$userID = '', $toID = '', $toFD = '')
     {
-        TaskManager::getInstance()->async(new BroadcastTask(['payload' => ['userID' => $userID , 'toID' => $toID], 'fromFd' => $fd]));
+        TaskManager::getInstance()->async(new BroadcastTask(['payload' => ['roomID' => $roomID , 'userID' => $userID ,'toID' => $toID, 'toFD' => $toFD ], 'fromFd' => $fd]));
     }
 
      /**
@@ -174,6 +174,8 @@ class Index extends Controller
             if( $zrank_success_invitation === 0 || $zrank_success_invitation) {  
                 $result    = [
                     'code'    => WebSocketAction::SUCCESS_CODE, 
+                    'userID'  =>  $userID,
+                    'roomID'  =>  $roomID,
                     'message'  =>  '你们已经互通直播了',
                     'status'   => WebSocketAction::msg_1004 //你们已经互通直播了
                 ];
@@ -243,13 +245,18 @@ class Index extends Controller
                         'startTime'    => time(),
                         'nowTime'      => time(),
                         'firstName'    => ! empty ( $userInfo['first_name'] ) ?  $userInfo['first_name'] : '',
+                        'userName'     => ! empty ( $userInfo['user_name'] ) ?  $userInfo['user_name'] : '',
                         'icon'         => ! empty ( $userInfo['icon'] ) ?   WebSocketAction::URL . $userInfo['icon'] :  WebSocketAction::IMG_URL,
                     ]
                 ];
 
                 $flag =  self::push($toFD, $sendData);
                 //异步通知 定时器
-                self::delay($getFd, $userID, $toID);
+                self::delay($getFd, $roomID, $userID,$toID, $toFD);
+
+                //计数
+                $ver_get_video_request = WebSocketAction::ver_get_video_request;
+                $this->redis->incr($ver_get_video_request);//键值递增
 
                 $result    = [
                     'code'     => WebSocketAction::SUCCESS_CODE, 
@@ -356,6 +363,10 @@ class Index extends Controller
                 $status = WebSocketAction::msg_1004;//你们已经互通直播了
 
 
+                //计数
+                $ver_get_video_agree = WebSocketAction::ver_get_video_agree;
+                $this->redis->incr($ver_get_video_agree);//键值递增
+
             } else if($operation == 'cancel') {
                 $status =  WebSocketAction::msg_1009;//该用户拒绝了您
             }
@@ -370,6 +381,8 @@ class Index extends Controller
             $result    = [
                 'code'    => WebSocketAction::SUCCESS_CODE, 
                 'message'  => $message[$operation],
+                'userID'   => $userID,
+                'roomID'   => $roomID,
                 'status'   => $status // '您已经邀请此用户,请耐心等待'
             ];
             $result_error    = [
@@ -410,12 +423,15 @@ class Index extends Controller
         if ( !empty($broadcastPayload) ) {
             $operation = $broadcastPayload['operation'];
             $userID    = $broadcastPayload['userID'];
-            $toID      = $broadcastPayload['toID'];
+            // $toID      = $broadcastPayload['toID'];
             $roomID    = ! empty ( $broadcastPayload['roomID'] ) ? intval( $broadcastPayload['roomID'] ) : '';
             $operation_method = [
                 'closeOne',
                 'closeAll',
             ];
+
+            $toID = $roomID;
+
             if( empty($operation) || !in_array($operation, $operation_method) )
             {
                 $result['code']    = WebSocketAction::ERROR_CODE;
@@ -424,23 +440,13 @@ class Index extends Controller
                 
             }
 
-            if(empty($toID) || !is_numeric($toID))
+            if(empty($roomID) || !is_numeric($roomID))
             {
                 $result['code']    = WebSocketAction::ERROR_CODE;
                 $result['message']  = '直播间ID不能为空';
                 return  self::setMessage( $result );
             }
-    
-            if($toID == $userID)
-            {
-                $result['code']    =  WebSocketAction::ERROR_CODE;
-                $result['message']  = 'ID不能相同';
-                return  self::setMessage( $result );
-            }
-
-            if(!$roomID) {
-                $roomID  = $toID;
-            }
+           
 
             $permanent_pain = WebSocketAction::ver_get_permanent_pain;//永久
             $temporary_pain = WebSocketAction::ver_get_temporary_pain;//零时
@@ -495,6 +501,10 @@ class Index extends Controller
                 //检测邀请的用户是否在播 删除主播占位房间
                 $this->redis->del('room_rid_'. $roomID);
                 $this->redis->del('room_fd_'. $getFd);
+
+                //计数
+                $ver_get_video_number = WebSocketAction::ver_get_video_number;
+                $this->redis->incr($ver_get_video_number);//键值递增
             } else if($operation == 'closeOne') {
 
                 if(empty($userID) || !is_numeric($userID))
@@ -574,14 +584,24 @@ class Index extends Controller
     {
         $getFd   = $this->caller()->getClient()->getFd();
         $Payload  = $this->caller()->getArgs();
-        $userID   = ! empty ( $Payload['userID'] ) && is_numeric( $Payload['userID'] ) ? $Payload['userID'] : '';
+        $userID   = ! empty ( $Payload['userID'] ) && is_numeric( $Payload['userID'] ) ? trim( $Payload['userID'] ) : '';
         if( $userID && is_numeric( $userID ) ) {
             $redis_name_user = WebSocketAction::ver_get_web_socket_user . $userID;
+            // if( $this->redis->exists( $redis_name_user) ) {
+            //     $oldFD = $this->redis->get($redis_name_user);//得到 老的 FD
+            //     if($oldFD != $getFd) {
+            //         $oldFD_redis_name   = WebSocketAction::ver_get_web_socket_fd . $oldFD;
+            //         $this->redis->del($oldFD_redis_name);
+            //     }
+            // }
+
             $redis_name_fd   = WebSocketAction::ver_get_web_socket_fd . $getFd;
             $this->redis->set($redis_name_user , $getFd);
             $this->redis->set($redis_name_fd   , $userID);
+            $this->response()->setMessage('PONG_'. $getFd . '_' . $userID);
+        } else {
+            $this->response()->setMessage('PONG_'. $getFd);
         }
-        $this->response()->setMessage('PONG_'. $getFd . '_' . $userID);
     }
 
     /**

@@ -18,6 +18,11 @@ class WebSocketAction
     const ver_get_success_invitation_fd = 'ver_wz_success_invitation_fd_';//成功邀请的列表 FD
 
 
+    const ver_get_video_request         = 'ver_wz_get_video_request'; //发起视频要求
+    const ver_get_video_agree           = 'ver_wz_get_video_agree';   //同意视频要求
+    const ver_get_video_number          = 'ver_wz_get_video_number';  //成交视频数量
+
+
     const ver_get_web_socket_user       = 'ver_wz_web_socket_user_';    
     const ver_get_web_socket_fd         = 'ver_wz_web_socket_fd_';    
 
@@ -36,7 +41,8 @@ class WebSocketAction
     const msg_1009      = 1009;//该用户拒绝了您
     const msg_1010      = 1010;//发起邀请人意外退出 | / web页面刷新 丢失 fd
     const msg_1011      = 1011;//房主退出,房间不存在
-    const msg_1012      = 1012;//房主退出,房间不存在
+    const msg_1012      = 1012;//主动挂断成功
+    const msg_1013      = 1013;//超时未操作,自动退出
 
 
     const SUCCESS_CODE  = 200; //成功

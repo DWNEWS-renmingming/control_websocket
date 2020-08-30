@@ -40,24 +40,30 @@ class BroadcastTask implements TaskInterface
      function run(int $taskId, int $workerIndex)
     {
         try {
-            sleep(30);
+            sleep(40);
             $taskData = $this->taskData;
             $taskDataInf0   = $taskData['payload'];
             $userID         = $taskDataInf0['userID'];
+            $roomID         = $taskDataInf0['roomID'];
             $toID           = $taskDataInf0['toID'];
+            $toFD           = $taskDataInf0['toFD'];
             $userFd         = $taskData['fromFd'];
 
-            if($userID && $toID && $userFd) {
+            if($userID && $toID && $userFd && $toFD && $roomID) {
 
                 $redis =  RedisPool::defer();
 
                 $success_invitation = WebSocketAction::ver_get_success_invitation;//成功邀请的列表
                 //检测toID是否在永久桶里面  我的成功邀请的列表
-                $success_invitation = $success_invitation . $userID;
-                $zrank_success_invitation =  $redis->zrank($success_invitation, $toID );//我的成功邀请列表
-                
+                $success_invitation = $success_invitation . $roomID;
+                $zrank =  $redis->zrank($success_invitation, $toID );//我的成功邀请列表
+                if( $zrank === 0 || $zrank) {
+                    $flag = true;
+                } else {
+                    $flag = false;
+                }
                 //我的成果邀请列表存在 toID
-                if( ! $zrank_success_invitation ) {  
+                if(  $flag  == false) {  
                     // '主动触发,关闭页面,长时间未响应,用户不在线';
                     $temporary_pain = WebSocketAction::ver_get_temporary_pain;//零时
                     $redis->zrem($temporary_pain, $userID);
@@ -75,6 +81,19 @@ class BroadcastTask implements TaskInterface
                             ]
                         ];
                         $server->push( $userFd, json_encode($sendData, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) );
+                    }
+                    //对方·超时间未操作 主动关闭
+                    $connection1 = $server->connection_info($toFD);
+                    if ($connection1['websocket_status'] == 3) {  // 用户正常在线时可以进行消息推送
+                        $sendData1 = [
+                            'action' => WebSocketAction::msg_1013,//长时间未响应,用户不在线
+                            'data'   =>  [
+                                'code'    => 200, 
+                                'message'  =>  '超时未操作,自动退出',
+                                'status'   => WebSocketAction::msg_1013 //超时未操作,自动退出
+                            ]
+                        ];
+                        $server->push( $toFD, json_encode($sendData1, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) );
                     }
                 }
             }

@@ -90,6 +90,8 @@ class WebSocketEvent
             $redis->zrem($permanent_pain, $userID); 
             //删除零时桶记录人
             $redis->zrem($temporary_pain, $userID); 
+        } else {
+            $redis->del($redis_name_fd);
         }    
         /** @var array $info */
         $info = $server->getClientInfo($fd);
