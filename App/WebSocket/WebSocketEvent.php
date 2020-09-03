@@ -90,6 +90,95 @@ class WebSocketEvent
             $redis->zrem($permanent_pain, $userID); 
             //删除零时桶记录人
             $redis->zrem($temporary_pain, $userID); 
+
+            ########################会议管理 意外退出 销毁房间 推送消息 开始##################################
+            $redis_name_user_room  = WebSocketAction::ver_get_room_management . 'user_' . $userID;
+            if ( $redis->exists( $redis_name_user_room ) ) {
+                $roomID          =  $redis->get($redis_name_user_room);
+                //检测房间的key
+                $redis_name_1   = WebSocketAction::ver_get_room_management . $roomID;
+                $redis->del($redis_name_1);
+
+                //房间内的人源的用户ID
+                $redis_name_meeting_room      = WebSocketAction::ver_get_room_management_info . $roomID;
+                //删除房间主人成功邀请列表
+                $redis->del($redis_name_meeting_room);
+
+                //成功邀请的列表 FD
+                $ver_get_room_management_fd   = WebSocketAction::ver_get_room_management_fd . $roomID;
+                //成功邀请的列表 FD
+                if ( $redis->exists( $ver_get_room_management_fd ) ) {
+                    $sendData    = [
+                        'action' => WebSocketAction::msg_1017, //房主退出,推送房内人员的各个FD
+                        'data'   => [
+                            'code'    =>  WebSocketAction::SUCCESS_CODE, 
+                            'message'  => '发起邀请人销毁房间,房间不存在',
+                            'status'   => WebSocketAction::msg_1017 //房主退出
+                        ]
+                    ];
+                    //成功邀请的列表 FD
+                    $toFd_redis_name_info = $redis->zrevrange($ver_get_room_management_fd, 0, -1);
+                    for ($i=0; $i < count($toFd_redis_name_info); $i++) { 
+                        //fd推送
+                        $toFd_redis_name_info_FD = $toFd_redis_name_info[$i];
+                        $info = $server->getClientInfo($toFd_redis_name_info_FD);
+                        if ($info && $info['websocket_status'] == WEBSOCKET_STATUS_FRAME) {
+                            $server->push($toFd_redis_name_info_FD, json_encode( $sendData, JSON_UNESCAPED_UNICODE ));
+                        } 
+                    }
+                    //删除房间主人成功邀请
+                    $redis->del($ver_get_room_management_fd);
+                }
+
+                $redis->del($redis_name_user_room);
+            }
+            ########################会议管理 意外退出 销毁房间 推送消息 结束 ##################################
+
+            ########################直播控制 意外退出  推送消息 开始 ##################################
+            $success_invitation = WebSocketAction::ver_get_success_invitation;//成功邀请的列表 toID
+            $success_invitation = $success_invitation . $userID;
+            //成功邀请的列表 toID
+            if ( $redis->exists( $success_invitation ) ) {
+                $success_invitation_info = $redis->zrevrange($success_invitation, 0, -1);
+                for ($i=0; $i < count($success_invitation_info); $i++) { 
+
+                    $success_invitation_userID = $success_invitation_info[$i];
+                    //删除永久桶记录人
+                    $redis->zrem($permanent_pain, $success_invitation_userID); 
+                    //删除零时桶记录人
+                    $redis->zrem($temporary_pain, $success_invitation_userID); 
+                }
+                //删除房间主人成功邀请
+                $redis->del($success_invitation);
+            }
+
+            $toFd_redis_name   = WebSocketAction::ver_get_success_invitation_fd . $userID;//成功邀请的列表 FD
+            //成功邀请的列表 FD
+            if ( $redis->exists( $toFd_redis_name ) ) {
+                $sendData1    = [
+                    'action' => WebSocketAction::msg_1011, //房主退出,
+                    'data'   => [
+                        'code'    =>  WebSocketAction::SUCCESS_CODE, 
+                        'message'  => '房主退出,房间不存在',
+                        'status'   => WebSocketAction::msg_1011 //房主退出
+                    ]
+                ];
+                //成功邀请的列表 FD
+                $toFd_redis_name_info1 = $redis->zrevrange($toFd_redis_name, 0, -1);
+                for ($i=0; $i < count($toFd_redis_name_info1); $i++) { 
+                    //fd推送
+                    $toFd_redis_name_info_FD1 = $toFd_redis_name_info1[$i];
+                    $info = $server->getClientInfo($toFd_redis_name_info_FD1);
+                    if ($info && $info['websocket_status'] == WEBSOCKET_STATUS_FRAME) {
+                        $server->push($toFd_redis_name_info_FD1, json_encode( $sendData1, JSON_UNESCAPED_UNICODE ));
+                    } 
+                }
+                //删除房间主人成功邀请
+                $redis->del($toFd_redis_name);
+            }
+            $redis->del('room_rid_'. $userID);
+            $redis->del('room_fd_'. $fd);
+            ########################会议管理 意外退出 销毁房间 推送消息 结束##################################
         } else {
             $redis->del($redis_name_fd);
         }    
@@ -123,14 +212,14 @@ class WebSocketEvent
         // ws rfc 规范中约定的验证过程
         if (!isset($request->header['sec-websocket-key'])) {
             // 需要 Sec-WebSocket-Key 如果没有拒绝握手
-            var_dump('shake fai1 3');
+            // var_dump('shake fai1 3');
             return false;
         }
         if (0 === preg_match('#^[+/0-9A-Za-z]{21}[AQgw]==$#', $request->header['sec-websocket-key'])
             || 16 !== strlen(base64_decode($request->header['sec-websocket-key']))
         ) {
             //不接受握手
-            var_dump('shake fai1 4');
+            // var_dump('shake fai1 4');
             return false;
         }
 
@@ -154,7 +243,7 @@ class WebSocketEvent
 
         // 接受握手 还需要101状态码以切换状态
         $response->status(101);
-        var_dump('shake success at fd :' . $request->fd);
+        //var_dump('shake success at fd :' . $request->fd);
         return true;
     }
 }

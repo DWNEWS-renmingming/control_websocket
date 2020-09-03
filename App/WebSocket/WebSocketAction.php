@@ -26,6 +26,12 @@ class WebSocketAction
     const ver_get_web_socket_user       = 'ver_wz_web_socket_user_';    
     const ver_get_web_socket_fd         = 'ver_wz_web_socket_fd_';    
 
+    // 会议管理
+    const ver_get_room_management           = 'ver_wz_room_management_';//房间管理ID
+    const ver_get_room_management_info      = 'ver_wz_room_management_info_';//房间管理 人数
+    const ver_get_room_management_fd        = 'ver_wz_room_management_fd_';//房间管理   fd
+
+
     const URL                          = 'https://etest.eovobochina.com/';//url
     const IMG_URL                      = 'https://etest.eovobochina.com/data/touxiang/1597491604545676098.jpg';//url
   
@@ -43,6 +49,14 @@ class WebSocketAction
     const msg_1011      = 1011;//房主退出,房间不存在
     const msg_1012      = 1012;//主动挂断成功
     const msg_1013      = 1013;//超时未操作,自动退出
+    ###############################################################################
+    const msg_1014      = 1014;//作者创建房间
+    const msg_1015      = 1015;//游客进入房间 检测房间是是否存在  存在
+    const msg_1016      = 1016;//游客进入房间 检测房间是是否存在  不存在
+    const msg_1017      = 1017;//作者退出房间 触发FD 推送
+    const msg_1018      = 1018;//房主退房
+    const msg_1019      = 1019;//个人退房
+
 
 
     const SUCCESS_CODE  = 200; //成功
@@ -52,6 +66,7 @@ class WebSocketAction
     //2 => 'IntoRoom',
     //3 => 'OptionRoom',
     //4 => 'exitRoom',
+    //5 => 'createMeeting',
     //99 => 'heartbeat1',
 /*
     add  & delete
@@ -65,5 +80,11 @@ class WebSocketAction
     退出房间
     {"action":"4","params":{"userID":"235","roomID":"236","toID":"236","operation":"closeAll"}}
     {"action":"4","params":{"userID":"235","roomID":"236","toID":"236","operation":"closeOne"}}
+
+    会议管理
+    {"action":"5","params":{"userID":"235","roomID":"236","operation":"create"}}
+    {"action":"5","params":{"userID":"235","roomID":"236","operation":"enter"}}
+    {"action":"5","params":{"userID":"235","roomID":"236","operation":"closeAll"}}
+    {"action":"5","params":{"userID":"235","roomID":"236","operation":"closeOne"}}
 */
 }

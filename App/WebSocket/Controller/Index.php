@@ -36,16 +36,7 @@ class Index extends Controller
         //继承父类的的 __construct
         parent::__construct();
     }
-
-    function hello()
-    {
-        $this->response()->setMessage('call hello with arg:'. json_encode($this->caller()->getArgs()));
-    }
-
-    public function who(){
-        $this->response()->setMessage('your fd is '. $this->caller()->getClient()->getFd());
-    }
-
+    
     public $operation_method = [ 
         'add',   
         'agree',
@@ -629,4 +620,149 @@ class Index extends Controller
         return false;
     }
 
+    /**
+     * 会议管理
+     */
+    public function createMeeting() {
+        /** @var WebSocketClient $client */
+        $getFd = $this->caller()->getClient()->getFd();
+        $broadcastPayload = $this->caller()->getArgs();
+        if ( !empty($broadcastPayload) ) {
+            $userID    = $broadcastPayload['userID'];
+            $roomID    = ! empty ( $broadcastPayload['roomID'] ) ? intval( $broadcastPayload['roomID'] ) : '';
+            $operation = $broadcastPayload['operation'];
+            $operation_method = [
+                'create',
+                'enter',
+                'closeAll',
+                'closeOne'
+            ];
+            if($operation == 'create') {
+                //房间ID
+                if(! $roomID) {
+                    $roomID = $userID;
+                }
+            }
+            if( empty($operation) || !in_array($operation, $operation_method) )
+            {
+                $result['code']     = WebSocketAction::ERROR_CODE;
+                $result['message']  = '操作型不能为空';
+    
+                return  self::setMessage( $result );
+            }
+            if(empty($userID) || !is_numeric($userID) || empty($roomID) || !is_numeric($roomID))
+            {
+                $result['code']     = WebSocketAction::ERROR_CODE;
+                $result['message']  = '用户或房间的ID不能为空';
+    
+                return  self::setMessage( $result );
+            }
+
+            //创建
+            if($operation == 'create') {
+                //房间ID & userID
+                $redis_name_user  = WebSocketAction::ver_get_room_management . 'user_' . $userID;
+                $this->redis->set($redis_name_user, $roomID);
+                self::redis_expire_time($redis_name_user, 86400);
+                //房间ID
+                $redis_name = WebSocketAction::ver_get_room_management . $roomID;
+                $this->redis->set($redis_name, $userID);
+                self::redis_expire_time($redis_name, 86400);
+
+                $result['code']     = WebSocketAction::SUCCESS_CODE;
+                $result['message']  = '创建房间成功';
+                $result['status']   =  WebSocketAction::msg_1014;
+                return  self::setMessage( $result, WebSocketAction::msg_1014 );
+            //游客 进入房间
+            } else if ($operation == 'enter') {
+
+                $redis_name = WebSocketAction::ver_get_room_management . $roomID;
+                if ( ! $this->redis->exists( $redis_name )  ) { 
+                    $result['code']     = WebSocketAction::SUCCESS_CODE;
+                    $result['message']  = '此房间不存在';
+                    $result['status']   =  WebSocketAction::msg_1016;
+                    return  self::setMessage( $result, WebSocketAction::msg_1016 );
+                } else {
+                    $redis_name_meeting_room      = WebSocketAction::ver_get_room_management_info . $roomID;
+                    $ver_get_room_management_fd   = WebSocketAction::ver_get_room_management_fd . $roomID;
+                    /*$this->redis->zadd($redis_name_meeting_room, time(), $userID);
+                    $this->redis->zadd($ver_get_room_management_fd, time(), $getFd);*/
+                    
+                    if ( ! $this->redis->exists( $redis_name_meeting_room )  ) {
+                        $this->redis->zadd($redis_name_meeting_room, time(), $userID); 
+                        self::redis_expire_time($redis_name_meeting_room, 7200);
+                    } else {
+                        $this->redis->zadd($redis_name_meeting_room, time(), $userID); 
+                    }
+
+                    if ( ! $this->redis->exists( $ver_get_room_management_fd )  ) {
+                        $this->redis->zadd($ver_get_room_management_fd, time(), $getFd); 
+                        self::redis_expire_time($ver_get_room_management_fd, 7200);
+                    } else {
+                        $this->redis->zadd($ver_get_room_management_fd, time(), $getFd); 
+                    }
+                
+                    $result['code']     = WebSocketAction::SUCCESS_CODE;
+                    $result['message']  = '进入房间成功';
+                    $result['status']   =  WebSocketAction::msg_1015;
+                    return  self::setMessage( $result, WebSocketAction::msg_1015 );
+                }
+            //销毁房间    
+            }   else if ($operation == 'closeAll') { 
+                //房间内的人源的用户ID
+                $redis_name_meeting_room      = WebSocketAction::ver_get_room_management_info . $roomID;
+                //删除房间主人成功邀请列表
+                $this->redis->del($redis_name_meeting_room);
+
+                //检测房间的key
+                $redis_name = WebSocketAction::ver_get_room_management . $roomID;
+                $this->redis->del($redis_name);
+
+                //检测房间的key 和创建人
+                $redis_name_1  = WebSocketAction::ver_get_room_management . 'user_' . $userID;
+                $this->redis->del($redis_name_1);
+
+                //房间内的人源的FD
+                $ver_get_room_management_fd   = WebSocketAction::ver_get_room_management_fd . $roomID;
+                //成功邀请的列表 FD
+                if ( $this->redis->exists( $ver_get_room_management_fd ) ) {
+                    $sendData    = [
+                        'action' => WebSocketAction::msg_1017, //房主退出,推送房内人员的各个FD
+                        'data'   => [
+                            'code'    =>  WebSocketAction::SUCCESS_CODE, 
+                            'message'  => '发起邀请人销毁房间,房间不存在',
+                            'status'   => WebSocketAction::msg_1017 //房主退出
+                        ]
+                    ];
+                    //成功邀请的列表 FD
+                    $toFd_redis_name_info = $this->redis->zrevrange($ver_get_room_management_fd, 0, -1);
+                    for ($i=0; $i < count($toFd_redis_name_info); $i++) { 
+                        //fd推送
+                        $toFd_redis_name_info_FD = $toFd_redis_name_info[$i];
+                        self::push($toFd_redis_name_info_FD, $sendData);
+                    }
+                    //删除房间主人成功邀请
+                    $this->redis->del($ver_get_room_management_fd);
+                }
+
+                $result['code']     =  WebSocketAction::SUCCESS_CODE;
+                $result['message']  = '房主退房';
+                $result['status']   =  WebSocketAction::msg_1018;
+                return  self::setMessage( $result, WebSocketAction::msg_1018 );
+
+            //个人退出        
+            }  else if ($operation == 'closeOne') { 
+
+                $redis_name_meeting_room      = WebSocketAction::ver_get_room_management_info . $roomID;
+                $ver_get_room_management_fd   = WebSocketAction::ver_get_room_management_fd . $roomID;
+                $this->redis->zrem($redis_name_meeting_room, $userID);
+                $this->redis->zrem($ver_get_room_management_fd, $getFd);
+                $result['code']     =  WebSocketAction::SUCCESS_CODE;
+                $result['message']  = '个人退房';
+                $result['status']   =  WebSocketAction::msg_1019;
+                return  self::setMessage( $result, WebSocketAction::msg_1019 );
+            }
+
+        }
+    }
 }

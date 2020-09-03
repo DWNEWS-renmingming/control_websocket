@@ -32,7 +32,8 @@ class Router extends AbstractRouter
             return false;
         });
         $this->setRouterNotFoundCallBack(function (Request $request, Response $response) {
-            $response->write("HTTP/1.1 405 Forbidden");
+            // $response->write("HTTP/1.1 405 Forbidden");
+            $response->redirect("https://etest.eovobochina.com/");
             return false;
         });
 

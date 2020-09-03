@@ -82,6 +82,7 @@ class WebSocketParser implements ParserInterface
             2 => 'IntoRoom',
             3 => 'OptionRoom',
             4 => 'exitRoom',
+            5 => 'createMeeting',
             99 => 'heartbeat1',
         ];
         return ! empty ( $actionAll[$action] ) ? $actionAll[$action] : 'heartbeat1';
