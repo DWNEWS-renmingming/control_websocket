@@ -16,7 +16,7 @@ return [
         'RUN_MODEL'      => SWOOLE_PROCESS,// 默认Server的运行模式
         'SETTING'        => [// Swoole Server的运行配置（ 完整配置可见[Swoole文档](https://wiki.swoole.com/wiki/page/274.html) ）
             'worker_num'               => 8,//运行的 task_worker 进程数量
-            // 'reload_async'             => true,//配置异步安全重启
+            'reload_async'             => true,//配置异步安全重启
             // 'max_wait_time'            => 5,
             'max_request'              => 5000,// task_worker 完成该数量的请求后将退出，防止内存溢出
             'enable_static_handler'    => false,//加入以下两条配置以返回静态文件

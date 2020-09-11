@@ -576,7 +576,7 @@ class Index extends Controller
         $getFd   = $this->caller()->getClient()->getFd();
         $Payload  = $this->caller()->getArgs();
         $userID   = ! empty ( $Payload['userID'] ) && is_numeric( $Payload['userID'] ) ? trim( $Payload['userID'] ) : '';
-        if( $userID && is_numeric( $userID ) ) {
+        if( $userID && is_numeric( $userID ) && $getFd && is_numeric( $getFd )  ) {
             $redis_name_user = WebSocketAction::ver_get_web_socket_user . $userID;
             // if( $this->redis->exists( $redis_name_user) ) {
             //     $oldFD = $this->redis->get($redis_name_user);//得到 老的 FD
@@ -589,6 +589,8 @@ class Index extends Controller
             $redis_name_fd   = WebSocketAction::ver_get_web_socket_fd . $getFd;
             $this->redis->set($redis_name_user , $getFd);
             $this->redis->set($redis_name_fd   , $userID);
+            self::redis_expire_time($redis_name_user, 7200);
+            self::redis_expire_time($redis_name_fd, 7200);
             $this->response()->setMessage('PONG_'. $getFd . '_' . $userID);
         } else {
             $this->response()->setMessage('PONG_'. $getFd);
