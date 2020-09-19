@@ -36,6 +36,23 @@ class Index extends Controller
         //继承父类的的 __construct
         parent::__construct();
     }
+    /**
+     * 语言包
+     */
+    public function lang($key = '', $toID = '' ,$isMe = true) {
+        if(! $key) {return false;}
+        if(!$toID) {
+            $getFd = $this->caller()->getClient()->getFd();
+        } else {
+            $getFd = $toID;
+        }
+        //语言包
+        $redis_name =  WebSocketAction::ver_get_room_language . $getFd;
+        $lang       = $this->redis->get($redis_name);
+        $flag       = $lang ? $lang : 'en';
+        $data       =  require('lang_'.$flag.'.php');
+        return $data[$key];
+    }
     
     public $operation_method = [ 
         'add',   
@@ -78,7 +95,7 @@ class Index extends Controller
             if ( ! $this->redis->exists( $to_web_socket_user )  ) {
                
                 $result['code']     = WebSocketAction::SUCCESS_CODE;
-                $result['message']  = '对方不在线';
+                $result['message']  = $this->lang('lang_1');
                 $result['status']   =  WebSocketAction::msg_1002;
                 return  self::setMessage( $result, WebSocketAction::msg_1002 );
             } else {
@@ -87,21 +104,21 @@ class Index extends Controller
 
             if($userID == $toID) {
                 $result['code']     = WebSocketAction::ERROR_CODE;
-                $result['message']  = '自己不能邀请自己';
+                $result['message']  = $this->lang('lang_2');
                 return  self::setMessage( $result );
             }
 
             if( empty($operation) || !in_array($operation, $operation_method) )
             {
                 $result['code']     = WebSocketAction::ERROR_CODE;
-                $result['message']  = '操作型不能为空';
+                $result['message']  = $this->lang('lang_3');
     
                 return  self::setMessage( $result );
             }
             if(empty($userID) || !is_numeric($userID) || empty($toID) || !is_numeric($toID))
             {
                 $result['code']     = WebSocketAction::ERROR_CODE;
-                $result['message']  = '邀请人ID不能为空';
+                $result['message']  = $this->lang('lang_4');
     
                 return  self::setMessage( $result );
             }
@@ -114,10 +131,10 @@ class Index extends Controller
             }
            
             $message = [
-                'add'     => '发起邀请成功',
-                'agree'   => '通过成功',
-                'cancel'  => '拒绝成功',
-                'delete'  => '我方主动挂断',
+                'add'     => $this->lang('lang_5'),
+                'agree'   => $this->lang('lang_6'),
+                'cancel'  => $this->lang('lang_7'),
+                'delete'  => $this->lang('lang_8'),
             ];
 
             $temporary_pain = WebSocketAction::ver_get_temporary_pain;//零时
@@ -143,7 +160,7 @@ class Index extends Controller
                     'action' => WebSocketAction::msg_1012,
                     'data'   => [
                         'code'     => WebSocketAction::SUCCESS_CODE, 
-                        'message'  => '对方主动挂断',
+                        'message'  => $this->lang('lang_9',$toFD, false),
                         'status'   => WebSocketAction::msg_1012 //主动挂断成功
                     ]
                 ];
@@ -167,7 +184,7 @@ class Index extends Controller
                     'code'    => WebSocketAction::SUCCESS_CODE, 
                     'userID'  =>  $userID,
                     'roomID'  =>  $roomID,
-                    'message'  =>  '你们已经互通直播了',
+                    'message'  => $this->lang('lang_10'),
                     'status'   => WebSocketAction::msg_1004 //你们已经互通直播了
                 ];
                 return  self::setMessage( $result, WebSocketAction::msg_1004 );
@@ -192,14 +209,14 @@ class Index extends Controller
                     $this->redis->zrem($temporary_pain, $toID);
                     $result    = [
                         'code'    => WebSocketAction::SUCCESS_CODE, 
-                        'message'  =>  '长时间未响应,用户不在线',
+                        'message'  => $this->lang('lang_11'),
                         'status'   => WebSocketAction::msg_1005 //长时间未响应,用户不在线 隐藏div
                     ];
                     return  self::setMessage( $result, WebSocketAction::msg_1005 );
                 } else {
                     $result    = [
                         'code'    => WebSocketAction::SUCCESS_CODE, 
-                        'message'  =>  '您已经邀请此用户,请耐心等待',
+                        'message'  => $this->lang('lang_12'),
                         'status'   => WebSocketAction::msg_1006 //您已经邀请此用户,请耐心等待
                     ];
                     return  self::setMessage( $result, WebSocketAction::msg_1006 );
@@ -208,7 +225,7 @@ class Index extends Controller
                 // '该用户在忙碌';
                 $result    = [
                     'code'    => WebSocketAction::SUCCESS_CODE, 
-                    'message'  =>  '该用户正在忙碌,请稍后',
+                    'message'  => $this->lang('lang_13'),
                     'status'   => WebSocketAction::msg_1007 // '该用户正在忙碌,请稍后'
                 ];
                 return  self::setMessage( $result, WebSocketAction::msg_1007 );
@@ -251,7 +268,7 @@ class Index extends Controller
 
                 $result    = [
                     'code'     => WebSocketAction::SUCCESS_CODE, 
-                    'message'  =>  '初次邀请此用户,请耐心等待',
+                    'message'  => $this->lang('lang_14'),
                     'status'   => WebSocketAction::msg_1006 // '您已经邀请此用户,请耐心等待'
                 ];
                 return  self::setMessage( $result, WebSocketAction::msg_1006 );
@@ -283,21 +300,21 @@ class Index extends Controller
             }
             if($userID == $toID) {
                 $result['code']    = WebSocketAction::ERROR_CODE;
-                $result['message']  = '自己不能邀请自己';
+                $result['message']  = $this->lang('lang_2');
                 return  self::setMessage( $result );
             }
 
             if( empty($operation) || !in_array($operation, $operation_method) )
             {
                 $result['code']    = WebSocketAction::ERROR_CODE;
-                $result['message']  = '操作型不能为空';
+                $result['message']  = $this->lang('lang_3');
     
                 return  self::setMessage( $result );
             }
             if(empty($userID) || !is_numeric($userID) || empty($toID) || !is_numeric($toID))
             {
                 $result['code']    = WebSocketAction::ERROR_CODE;
-                $result['message']  = '邀请人ID不能为空';
+                $result['message']  = $this->lang('lang_4');
     
                 return  self::setMessage( $result );
             }
@@ -363,12 +380,19 @@ class Index extends Controller
             }
             
             $message = [
-                'add'     => '发起邀请成功',
-                'agree'   => '通过成功',
-                'cancel'  => '拒绝成功',
-                'delete'  => '挂断成功',
+                'add'     => $this->lang('lang_5'),
+                'agree'   => $this->lang('lang_6'),
+                'cancel'  => $this->lang('lang_7'),
+                'delete'  => $this->lang('lang_15'),
             ];
-
+           
+            $message1 = [
+                'add'     => $this->lang('lang_5'  ,$fd, false),
+                'agree'   => $this->lang('lang_6'  ,$fd, false),
+                'cancel'  => $this->lang('lang_7'  ,$fd, false),
+                'delete'  => $this->lang('lang_15' ,$fd, false),
+            ];
+            //给自己
             $result    = [
                 'code'    => WebSocketAction::SUCCESS_CODE, 
                 'message'  => $message[$operation],
@@ -376,14 +400,22 @@ class Index extends Controller
                 'roomID'   => $roomID,
                 'status'   => $status // '您已经邀请此用户,请耐心等待'
             ];
+            //给别人
+            $result1    = [
+                'code'    => WebSocketAction::SUCCESS_CODE, 
+                'message'  => $message1[$operation],
+                'userID'   => $userID,
+                'roomID'   => $roomID,
+                'status'   => $status // '您已经邀请此用户,请耐心等待'
+            ];
             $result_error    = [
                 'code'    => WebSocketAction::SUCCESS_CODE, 
-                'message'  => '发起邀请人意外退出',
+                'message'  => $this->lang('lang_16'),
                 'status'   => WebSocketAction::msg_1010,  // web页面刷新 丢失 fd
             ];
             $sendData = [
                 'action' => $status,
-                'data'   => $result,
+                'data'   => $result1,
             ];
             $flag =  self::push($fd, $sendData);
             if($flag) {
@@ -426,7 +458,7 @@ class Index extends Controller
             if( empty($operation) || !in_array($operation, $operation_method) )
             {
                 $result['code']    = WebSocketAction::ERROR_CODE;
-                $result['message']  = '操作型不能为空';
+                $result['message']  = $this->lang('lang_3');
                 return  self::setMessage( $result );
                 
             }
@@ -434,7 +466,7 @@ class Index extends Controller
             if(empty($roomID) || !is_numeric($roomID))
             {
                 $result['code']    = WebSocketAction::ERROR_CODE;
-                $result['message']  = '直播间ID不能为空';
+                $result['message']  = $this->lang('lang_17');
                 return  self::setMessage( $result );
             }
            
@@ -470,19 +502,27 @@ class Index extends Controller
 
                 //成功邀请的列表 FD
                 if ( $this->redis->exists( $toFd_redis_name ) ) {
-                    $sendData    = [
+                    /*$sendData    = [
                         'action' => WebSocketAction::msg_1011, //房主退出,
                         'data'   => [
                             'code'    =>  WebSocketAction::SUCCESS_CODE, 
                             'message'  => '房主退出,房间不存在',
                             'status'   => WebSocketAction::msg_1011 //房主退出
                         ]
-                    ];
+                    ];*/
                     //成功邀请的列表 FD
                     $toFd_redis_name_info = $this->redis->zrevrange($toFd_redis_name, 0, -1);
                     for ($i=0; $i < count($toFd_redis_name_info); $i++) { 
                         //fd推送
                         $toFd_redis_name_info_FD = $toFd_redis_name_info[$i];
+                        $sendData    = [
+                            'action' => WebSocketAction::msg_1011, //房主退出,
+                            'data'   => [
+                                'code'    =>  WebSocketAction::SUCCESS_CODE, 
+                                'message'  => $this->lang('lang_18', $toFd_redis_name_info_FD, false),
+                                'status'   => WebSocketAction::msg_1011 //房主退出
+                            ]
+                        ];
                         self::push($toFd_redis_name_info_FD, $sendData);
                     }
                     //删除房间主人成功邀请
@@ -501,7 +541,7 @@ class Index extends Controller
                 if(empty($userID) || !is_numeric($userID))
                 {
                     $result['code']    = WebSocketAction::ERROR_CODE;
-                    $result['message']  = '用户ID不能为空';
+                    $result['message']  = $this->lang('lang_19');
                     return  self::setMessage( $result );
                 }
                 //删除永久桶记录人
@@ -514,8 +554,8 @@ class Index extends Controller
             }
 
             $message = [
-                'closeOne'  => '单个用户退出成功',
-                'closeAll'  => '全部用户清空成功',
+                'closeOne'  =>  $this->lang('lang_20'),
+                'closeAll'  =>  $this->lang('lang_21'),
             ];
     
             $result    = [
@@ -576,6 +616,7 @@ class Index extends Controller
         $getFd   = $this->caller()->getClient()->getFd();
         $Payload  = $this->caller()->getArgs();
         $userID   = ! empty ( $Payload['userID'] ) && is_numeric( $Payload['userID'] ) ? trim( $Payload['userID'] ) : '';
+        $Lang     = ! empty ( $Payload['Lang'] )  ? trim( $Payload['Lang'] ) : 'zh';
         if( $userID && is_numeric( $userID ) && $getFd && is_numeric( $getFd )  ) {
             $redis_name_user = WebSocketAction::ver_get_web_socket_user . $userID;
             // if( $this->redis->exists( $redis_name_user) ) {
@@ -587,8 +628,11 @@ class Index extends Controller
             // }
 
             $redis_name_fd   = WebSocketAction::ver_get_web_socket_fd . $getFd;
+            $redis_name_lang = WebSocketAction::ver_get_room_language . $getFd;
             $this->redis->set($redis_name_user , $getFd);
             $this->redis->set($redis_name_fd   , $userID);
+            $this->redis->set($redis_name_lang , $Lang);
+            self::redis_expire_time($redis_name_lang, 7200);
             self::redis_expire_time($redis_name_user, 7200);
             self::redis_expire_time($redis_name_fd, 7200);
             $this->response()->setMessage('PONG_'. $getFd . '_' . $userID);
@@ -648,14 +692,14 @@ class Index extends Controller
             if( empty($operation) || !in_array($operation, $operation_method) )
             {
                 $result['code']     = WebSocketAction::ERROR_CODE;
-                $result['message']  = '操作型不能为空';
+                $result['message']  = $this->lang('lang_3');
     
                 return  self::setMessage( $result );
             }
             if(empty($userID) || !is_numeric($userID) || empty($roomID) || !is_numeric($roomID))
             {
                 $result['code']     = WebSocketAction::ERROR_CODE;
-                $result['message']  = '用户或房间的ID不能为空';
+                $result['message']  = $this->lang('lang_22');
     
                 return  self::setMessage( $result );
             }
@@ -672,7 +716,7 @@ class Index extends Controller
                 self::redis_expire_time($redis_name, 86400);
 
                 $result['code']     = WebSocketAction::SUCCESS_CODE;
-                $result['message']  = '创建房间成功';
+                $result['message']  =  $this->lang('lang_23');
                 $result['status']   =  WebSocketAction::msg_1014;
                 return  self::setMessage( $result, WebSocketAction::msg_1014 );
             //游客 进入房间
@@ -681,7 +725,7 @@ class Index extends Controller
                 $redis_name = WebSocketAction::ver_get_room_management . $roomID;
                 if ( ! $this->redis->exists( $redis_name )  ) { 
                     $result['code']     = WebSocketAction::SUCCESS_CODE;
-                    $result['message']  = '此房间不存在';
+                    $result['message']  = $this->lang('lang_24');
                     $result['status']   =  WebSocketAction::msg_1016;
                     return  self::setMessage( $result, WebSocketAction::msg_1016 );
                 } else {
@@ -705,7 +749,7 @@ class Index extends Controller
                     }
                 
                     $result['code']     = WebSocketAction::SUCCESS_CODE;
-                    $result['message']  = '进入房间成功';
+                    $result['message']  = $this->lang('lang_25');
                     $result['status']   =  WebSocketAction::msg_1015;
                     return  self::setMessage( $result, WebSocketAction::msg_1015 );
                 }
@@ -728,19 +772,27 @@ class Index extends Controller
                 $ver_get_room_management_fd   = WebSocketAction::ver_get_room_management_fd . $roomID;
                 //成功邀请的列表 FD
                 if ( $this->redis->exists( $ver_get_room_management_fd ) ) {
-                    $sendData    = [
+                    /*$sendData    = [
                         'action' => WebSocketAction::msg_1017, //房主退出,推送房内人员的各个FD
                         'data'   => [
                             'code'    =>  WebSocketAction::SUCCESS_CODE, 
                             'message'  => '发起邀请人销毁房间,房间不存在',
                             'status'   => WebSocketAction::msg_1017 //房主退出
                         ]
-                    ];
+                    ];*/
                     //成功邀请的列表 FD
                     $toFd_redis_name_info = $this->redis->zrevrange($ver_get_room_management_fd, 0, -1);
                     for ($i=0; $i < count($toFd_redis_name_info); $i++) { 
                         //fd推送
                         $toFd_redis_name_info_FD = $toFd_redis_name_info[$i];
+                        $sendData    = [
+                            'action' => WebSocketAction::msg_1017, //房主退出,推送房内人员的各个FD
+                            'data'   => [
+                                'code'     =>  WebSocketAction::SUCCESS_CODE, 
+                                'message'  => $this->lang('lang_28', $toFd_redis_name_info_FD, false),
+                                'status'   => WebSocketAction::msg_1017 //房主退出
+                            ]
+                        ];
                         self::push($toFd_redis_name_info_FD, $sendData);
                     }
                     //删除房间主人成功邀请
@@ -748,7 +800,7 @@ class Index extends Controller
                 }
 
                 $result['code']     =  WebSocketAction::SUCCESS_CODE;
-                $result['message']  = '房主退房';
+                $result['message']  = $this->lang('lang_26');
                 $result['status']   =  WebSocketAction::msg_1018;
                 return  self::setMessage( $result, WebSocketAction::msg_1018 );
 
@@ -760,7 +812,7 @@ class Index extends Controller
                 $this->redis->zrem($redis_name_meeting_room, $userID);
                 $this->redis->zrem($ver_get_room_management_fd, $getFd);
                 $result['code']     =  WebSocketAction::SUCCESS_CODE;
-                $result['message']  = '个人退房';
+                $result['message']  = $this->lang('lang_27');
                 $result['status']   =  WebSocketAction::msg_1019;
                 return  self::setMessage( $result, WebSocketAction::msg_1019 );
             }
