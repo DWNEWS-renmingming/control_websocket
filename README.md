@@ -16,8 +16,8 @@ ws://127.0.0.1:9501
 
 
 add  & delete
- {"action":"2","params":{"userID":"236","toID":"235","roomID":"236","operation":"add"}}
- {"action":"2","params":{"userID":"236","toID":"235","roomID":"236","operation":"delete"}}
+##{"action":"2","params":{"userID":"236","toID":"235","roomID":"236","operation":"add"}}
+##{"action":"2","params":{"userID":"236","toID":"235","roomID":"236","operation":"delete"}}
 
 agree or cancel
 {"action":"3","params":{"userID":"235","toID":"236","roomID":"236","operation":"agree"}}
