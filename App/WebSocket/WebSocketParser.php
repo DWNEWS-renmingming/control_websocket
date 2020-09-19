@@ -65,7 +65,8 @@ class WebSocketParser implements ParserInterface
             // 设置被调用的Args
             $caller->setArgs(
                 [
-                    'userID' => ! empty ( $PING_INFO[1] ) && is_numeric( $PING_INFO[1] ) ? $PING_INFO[1] : ''
+                    'userID' => ! empty ( $PING_INFO[1] ) && is_numeric( $PING_INFO[1] ) ? $PING_INFO[1] : '',
+                    'Lang'   => ! empty ( $PING_INFO[2] ) ? $PING_INFO[2] : 'zh'
                 ]
             );
         }

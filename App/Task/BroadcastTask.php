@@ -70,26 +70,30 @@ class BroadcastTask implements TaskInterface
                     $redis->zrem($temporary_pain, $toID);
                     /** @var \swoole_websocket_server $server */
                     $server = ServerManager::getInstance()->getSwooleServer();
+                    $redis_name_userFd =  WebSocketAction::ver_get_room_language . $userFd;
+                    $lang_userFD       = $redis->get($redis_name_userFd);
                     $connection = $server->connection_info($userFd);
                     if ($connection['websocket_status'] == 3) {  // 用户正常在线时可以进行消息推送
                         $sendData = [
                             'action' => WebSocketAction::msg_1005,//长时间未响应,用户不在线
                             'data'   =>  [
                                 'code'    => 200, 
-                                'message'  =>  '长时间未响应,用户不在线',
+                                'message'  => $lang_userFD == 'en' ? 'No response for a long time, the user is not online' : '长时间未响应,用户不在线',
                                 'status'   => WebSocketAction::msg_1005 //长时间未响应,用户不在线 隐藏div
                             ]
                         ];
                         $server->push( $userFd, json_encode($sendData, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) );
                     }
                     //对方·超时间未操作 主动关闭
+                    $redis_name_toFD =  WebSocketAction::ver_get_room_language . $toFD;
+                    $lang_toFD       = $redis->get($redis_name_toFD);
                     $connection1 = $server->connection_info($toFD);
                     if ($connection1['websocket_status'] == 3) {  // 用户正常在线时可以进行消息推送
                         $sendData1 = [
                             'action' => WebSocketAction::msg_1013,//长时间未响应,用户不在线
                             'data'   =>  [
                                 'code'    => 200, 
-                                'message'  =>  '超时未操作,自动退出',
+                                'message'  =>  $lang_toFD == 'en' ? 'Timeout no operation, automatic exit' :'超时未操作,自动退出',
                                 'status'   => WebSocketAction::msg_1013 //超时未操作,自动退出
                             ]
                         ];

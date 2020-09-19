@@ -57,12 +57,14 @@ class WebSocketEvent
          * 进行自定义验证后即可
          * (注) 浏览器中 JavaScript 并不支持自定义握手请求头 只能选择别的方式 如get参数
          */
+        // $cookie = $request->cookie;
         $headers = $request->header;
-        $cookie = $request->cookie;
-
-        // if (如果不满足我某些自定义的需求条件，返回false，握手失败) {
-        //    return false;
-        // }
+        print_r($request);
+        $fd      =  $request->fd;
+        $lang    =  ! empty ( $headers['lang'] ) ? trim( $headers['lang'] ) : 'en';
+        $redis_name   = WebSocketAction::ver_get_room_language . $fd;
+        $redis   = RedisPool::defer();
+        $lang    = $redis->set($redis_name, $lang);
         return true;
     }
 
@@ -77,6 +79,8 @@ class WebSocketEvent
     {
         //刷新删除 fd  TCP客户端连接关闭后 
         $redis =  RedisPool::defer();
+        $redis_name_lang  = WebSocketAction::ver_get_room_language . $fd;
+        $redis->del($redis_name_lang);
         $redis_name_fd   = WebSocketAction::ver_get_web_socket_fd . $fd;
         if ( $redis->exists( $redis_name_fd )  ) {
             $userID          =  $redis->get($redis_name_fd);

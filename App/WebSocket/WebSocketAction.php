@@ -31,6 +31,9 @@ class WebSocketAction
     const ver_get_room_management_info      = 'ver_wz_room_management_info_';//房间管理 人数
     const ver_get_room_management_fd        = 'ver_wz_room_management_fd_';//房间管理   fd
 
+    //语言包
+    const ver_get_room_language             = 'ver_wz_room_language_';//语言
+
 
     const URL                          = 'https://etest.eovobochina.com/';//url
     const IMG_URL                      = 'https://etest.eovobochina.com/data/touxiang/1597491604545676098.jpg';//url
